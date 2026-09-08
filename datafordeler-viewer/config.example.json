@@ -1,5 +1,5 @@
 {
-  "endpoint": "https://graphql.datafordeler.dk/DAR/3",
+  "endpoint": "https://graphql.datafordeler.dk/DAR/v3",
   "token": "INDSAET_TOKEN_HER",
   "tokenParameter": "apiKey",
   "defaultFirst": 100
