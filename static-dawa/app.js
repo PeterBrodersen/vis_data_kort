@@ -1,7 +1,30 @@
 (function () {
   'use strict';
-  var map = L.map('map').setView([56.1, 10.2], 7);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  var map = L.map('map', { maxZoom: 20 }).setView([56.1, 10.2], 7), config;
+  function addBackground() {
+    var dataforsyningen = config.Dataforsyningen || {};
+    if (!dataforsyningen.token || dataforsyningen.token === 'INDSAET_TOKEN_HER') {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      return;
+    }
+    var styleUrl = 'https://cdn.dataforsyningen.dk/assets/vector_tiles_assets/latest/styles/official/3857_skaermkort_klassisk.json';
+    fetch(styleUrl).then(function (response) {
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.json();
+    }).then(function (style) {
+      Object.keys(style.sources || {}).forEach(function (sourceName) {
+        var source = style.sources[sourceName];
+        source.maxzoom = 20;
+        if (source.tiles) source.tiles = source.tiles.map(function (tileUrl) {
+          var separator = tileUrl.indexOf('?') < 0 ? '?' : '&';
+          return tileUrl + separator + 'token=' + encodeURIComponent(dataforsyningen.token);
+        });
+      });
+      L.maplibreGL({ style: style, attributionControl: { customAttribution: '&copy; Klimadatastyrelsen / Dataforsyningen' } }).addTo(map);
+    }).catch(function () {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+    });
+  }
 
   function status(message) { document.getElementById('status').textContent = message; }
   function requestFromHash() {
@@ -43,5 +66,11 @@
     }).catch(function (error) { status('Fejl: ' + error.message + '. Kontroller CORS og endpointet.'); });
   }
   window.addEventListener('hashchange', load);
-  load();
+  fetch('config.json').then(function (response) {
+    if (!response.ok) throw new Error('config.json blev ikke fundet. Kopiér config.example.json til config.json.');
+    return response.json();
+  }).then(function (loaded) { config = loaded; addBackground(); load(); }).catch(function (error) {
+    if (location.protocol === 'file:') status('Åbn appen via en lokal webserver, ikke direkte som file://. Kør f.eks. py -m http.server 8000 i denne mappe.');
+    else status('Fejl: ' + error.message);
+  });
 }());

@@ -1,7 +1,30 @@
 (function () {
   'use strict';
-  var map = L.map('map').setView([56.1, 10.2], 7), config;
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+  var map = L.map('map', { maxZoom: 20 }).setView([56.1, 10.2], 7), config;
+  function addBackground() {
+    var dataforsyningen = config.Dataforsyningen || {};
+    if (!dataforsyningen.token || dataforsyningen.token === 'INDSAET_TOKEN_HER') {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+      return;
+    }
+    var styleUrl = 'https://cdn.dataforsyningen.dk/assets/vector_tiles_assets/latest/styles/official/3857_skaermkort_klassisk.json';
+    fetch(styleUrl).then(function (response) {
+      if (!response.ok) throw new Error('HTTP ' + response.status);
+      return response.json();
+    }).then(function (style) {
+      Object.keys(style.sources || {}).forEach(function (sourceName) {
+        var source = style.sources[sourceName];
+        source.maxzoom = 20;
+        if (source.tiles) source.tiles = source.tiles.map(function (tileUrl) {
+          var separator = tileUrl.indexOf('?') < 0 ? '?' : '&';
+          return tileUrl + separator + 'token=' + encodeURIComponent(dataforsyningen.token);
+        });
+      });
+      L.maplibreGL({ style: style, attributionControl: { customAttribution: '&copy; Klimadatastyrelsen / Dataforsyningen' } }).addTo(map);
+    }).catch(function () {
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+    });
+  }
   proj4.defs('EPSG:25832', '+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs');
   var mappings = { adgangsadresser: 'DAR_Husnummer', adresser: 'DAR_Adresse', navngivneveje: 'DAR_NavngivenVej', vejstykker: 'DAR_NavngivenVejKommunedel' };
   var fields = { DAR_Husnummer: 'id_lokalId adgangsadressebetegnelse status adgangspunkt vejpunkt', DAR_Adresse: 'id_lokalId adressebetegnelse status husnummer', DAR_NavngivenVej: 'id_lokalId vejnavn status vejnavnebeliggenhed_vejnavnelinje { wkt } vejnavnebeliggenhed_vejnavneomraade { wkt }', DAR_NavngivenVejKommunedel: 'id_lokalId vejkode kommune status navngivenVej' };
@@ -19,15 +42,17 @@
     var entity = mappings[resource], field = fields[entity], hasId;
     if (!entity) throw new Error('Ingen DAR-mapping for ' + resource);
     hasId = query.get('id');
-    if (hasId) return { query: 'query { ' + entity + '(first: ' + (config.defaultFirst || 100) + filter(query, resource, postnummerIds) + ') { nodes { ' + field + ' } } }' };
-    return { query: 'query($virkningstid: DafDateTime!) { ' + entity + '(first: ' + (config.defaultFirst || 100) + ', virkningstid: $virkningstid' + filter(query, resource, postnummerIds) + ') { nodes { ' + field + ' } } }', variables: { virkningstid: new Date().toISOString() } };
+    var datafordeler = config.Datafordeler || {};
+    if (hasId) return { query: 'query { ' + entity + '(first: ' + (datafordeler.defaultFirst || 100) + filter(query, resource, postnummerIds) + ') { nodes { ' + field + ' } } }' };
+    return { query: 'query($virkningstid: DafDateTime!) { ' + entity + '(first: ' + (datafordeler.defaultFirst || 100) + ', virkningstid: $virkningstid' + filter(query, resource, postnummerIds) + ') { nodes { ' + field + ' } } }', variables: { virkningstid: new Date().toISOString() } };
   }
   function postnummerQuery(value) { return 'query($virkningstid: DafDateTime!) { DAR_Postnummer(first: 10, virkningstid: $virkningstid, where: { postnr: { eq: ' + JSON.stringify(value) + ' } }) { nodes { id_lokalId } } }'; }
   function pointQuery(ids) { return 'query { DAR_Adressepunkt(first: ' + ids.length + ', where: { id_lokalId: { in: [' + ids.map(JSON.stringify).join(', ') + '] } }) { nodes { id_lokalId position { wkt } } } }'; }
   function husnummerQuery(ids) { return 'query { DAR_Husnummer(first: ' + ids.length + ', where: { id_lokalId: { in: [' + ids.map(JSON.stringify).join(', ') + '] } }) { nodes { id_lokalId adgangspunkt vejpunkt } } }'; }
   function namedRoadQuery(ids) { return 'query { DAR_NavngivenVej(first: ' + ids.length + ', where: { id_lokalId: { in: [' + ids.map(JSON.stringify).join(', ') + '] } }) { nodes { id_lokalId vejnavn status vejnavnebeliggenhed_vejnavnelinje { wkt } vejnavnebeliggenhed_vejnavneomraade { wkt } } } }'; }
   function graphQl(query, variables) {
-    var body = JSON.stringify({ query: query, variables: variables }), url = config.endpoint + '?' + encodeURIComponent(config.tokenParameter || 'apiKey') + '=' + encodeURIComponent(config.token);
+    var datafordeler = config.Datafordeler || {};
+    var body = JSON.stringify({ query: query, variables: variables }), url = datafordeler.endpoint + '?' + encodeURIComponent(datafordeler.tokenParameter || 'apiKey') + '=' + encodeURIComponent(datafordeler.token);
     return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body }).then(function (response) { if (!response.ok) throw new Error('HTTP ' + response.status); return response.json(); });
   }
   function usablePoint(point) { return point && point.position && geometryFromWkt(point.position.wkt); }
@@ -98,7 +123,8 @@
     var current = request(), parts = current.path.split('/'), resource = parts[0].toLowerCase();
     if (parts[1] && !current.query.get('id')) current.query.set('id', decodeURIComponent(parts[1]));
     if (!current.path) { status('Brug f.eks. #adgangsadresser?postnr=2100'); return; }
-    if (!config || !config.token || config.token === 'INDSAET_TOKEN_HER') { status('Angiv token i config.json'); return; }
+    var datafordeler = config.Datafordeler || {};
+    if (!config || !datafordeler.token || datafordeler.token === 'INDSAET_TOKEN_HER') { status('Angiv Datafordeler-token i config.json'); return; }
     var requestData, requestPromise;
     status('Henter Datafordeler-data');
     if (resource === 'adgangsadresser' && current.query.get('postnr')) {
@@ -122,8 +148,9 @@
       throw new Error('Kunne ikke indlæse config.json (HTTP ' + response.status + ')');
     }
     return response.json();
-  }).then(function (loaded) { config = loaded; load(); }).catch(function (error) {
-    if (error instanceof SyntaxError) status('Fejl: config.json er ikke en JSON-fil (' + errorMessage(error) + ')');
+  }).then(function (loaded) { config = loaded; addBackground(); load(); }).catch(function (error) {
+    if (location.protocol === 'file:') status('Åbn appen via en lokal webserver, ikke direkte som file://. Kør f.eks. py -m http.server 8000 i denne mappe.');
+    else if (error instanceof SyntaxError) status('Fejl: config.json er ikke en JSON-fil (' + errorMessage(error) + ')');
     else status('Fejl: ' + errorMessage(error));
   });
   window.addEventListener('hashchange', load);
