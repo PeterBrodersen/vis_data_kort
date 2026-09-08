@@ -35,6 +35,15 @@
     status('Henter Datafordeler-data');
     fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body }).then(function (response) { if (!response.ok) throw new Error('HTTP ' + response.status); return response.json(); }).then(function (data) { show(data, resource); status('Færdig'); }).catch(function (error) { status('Fejl: ' + error.message + '. Kontrollér token, mapping og CORS.'); });
   }
-  fetch('config.json').then(function (response) { return response.json(); }).then(function (loaded) { config = loaded; load(); }).catch(function () { status('Kunne ikke indlæse config.json'); });
+  fetch('config.json').then(function (response) {
+    if (!response.ok) {
+      if (response.status === 404) throw new Error('config.json blev ikke fundet. Kopiér config.example.json til config.json og angiv token.');
+      throw new Error('Kunne ikke indlæse config.json (HTTP ' + response.status + ')');
+    }
+    return response.json();
+  }).then(function (loaded) { config = loaded; load(); }).catch(function (error) {
+    if (error instanceof SyntaxError) status('Fejl: config.json er ikke en JSON-fil (' + error.message + ')');
+    else status('Fejl: ' + error.message);
+  });
   window.addEventListener('hashchange', load);
 }());

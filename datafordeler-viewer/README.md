@@ -1,6 +1,7 @@
 # Statisk Datafordeler-visning
 
-Angiv token i `config.json`, og servér mappen fra en webserver. Eksempler:
+Kopiér først `config.example.json` til `config.json`, angiv token i den nye
+fil, og servér derefter mappen fra en webserver. Eksempler:
 
 * `/#adgangsadresser?postnr=2100`
 * `/#adresser?id=...`
