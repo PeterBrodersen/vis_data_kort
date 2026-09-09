@@ -50,6 +50,16 @@
   function pointQuery(ids) { return 'query { DAR_Adressepunkt(first: ' + ids.length + ', where: { id_lokalId: { in: [' + ids.map(JSON.stringify).join(', ') + '] } }) { nodes { id_lokalId position { wkt } } } }'; }
   function husnummerQuery(ids) { return 'query { DAR_Husnummer(first: ' + ids.length + ', where: { id_lokalId: { in: [' + ids.map(JSON.stringify).join(', ') + '] } }) { nodes { id_lokalId adgangspunkt vejpunkt } } }'; }
   function namedRoadQuery(ids) { return 'query { DAR_NavngivenVej(first: ' + ids.length + ', where: { id_lokalId: { in: [' + ids.map(JSON.stringify).join(', ') + '] } }) { nodes { id_lokalId vejnavn status vejnavnebeliggenhed_vejnavnelinje { wkt } vejnavnebeliggenhed_vejnavneomraade { wkt } } } }'; }
+  function loadNamedRoadGeometry(data) {
+    var nodes = data.data && data.data.DAR_NavngivenVej && data.data.DAR_NavngivenVej.nodes;
+    if (!nodes) return Promise.reject(new Error(data.errors ? data.errors.map(function (item) { return item.message; }).join('; ') : 'Uventet GraphQL-svar'));
+    return Promise.all(nodes.map(function (node) {
+      var url = 'https://api.dataforsyningen.dk/navngivneveje/' + encodeURIComponent(node.id_lokalId) + '?format=geojson&geometri=begge';
+      return fetch(url).then(function (response) { if (!response.ok) throw new Error('HTTP ' + response.status); return response.json(); }).then(function (feature) {
+        node.__geojsonGeometry = feature.geometry;
+      }).catch(function () {});
+    })).then(function () { return data; });
+  }
   function graphQl(query, variables) {
     var datafordeler = config.Datafordeler || {};
     var body = JSON.stringify({ query: query, variables: variables }), url = datafordeler.endpoint + '?' + encodeURIComponent(datafordeler.tokenParameter || 'apiKey') + '=' + encodeURIComponent(datafordeler.token);
@@ -104,7 +114,7 @@
   }
   function toFeature(node, resource) {
     var point = resource === 'adgangsadresser' ? pointFromPosition(node.adgangspunkt && node.adgangspunkt.position) : null;
-    var geometry = point ? { type: 'Point', coordinates: proj4('EPSG:25832', 'EPSG:4326', point) } : null;
+    var geometry = node.__geojsonGeometry || (point ? { type: 'Point', coordinates: proj4('EPSG:25832', 'EPSG:4326', point) } : null);
     if (!geometry) geometry = geometryFromWkt(node.position && node.position.wkt);
     if (!geometry) geometry = geometryFromWkt(node.vejnavnebeliggenhed_vejnavnelinje && node.vejnavnebeliggenhed_vejnavnelinje.wkt);
     if (!geometry) geometry = geometryFromWkt(node.vejnavnebeliggenhed_vejnavneomraade && node.vejnavnebeliggenhed_vejnavneomraade.wkt);
@@ -140,7 +150,7 @@
       requestData = queryFor(resource, current.query);
       requestPromise = graphQl(requestData.query, requestData.variables);
     }
-    requestPromise.then(function (data) { if (resource === 'adgangsadresser' || resource === 'adresser') return loadAddressPoints(data, resource); if (resource === 'vejstykker') return loadRoadGeometry(data); return data; }).then(function (data) { show(data, resource); status('Færdig'); }).catch(function (error) { status('Fejl: ' + errorMessage(error) + '. Kontrollér token, mapping og CORS.'); });
+    requestPromise.then(function (data) { if (resource === 'adgangsadresser' || resource === 'adresser') return loadAddressPoints(data, resource); if (resource === 'vejstykker') return loadRoadGeometry(data); if (resource === 'navngivneveje') return loadNamedRoadGeometry(data); return data; }).then(function (data) { show(data, resource); status('Færdig'); }).catch(function (error) { status('Fejl: ' + errorMessage(error) + '. Kontrollér token, mapping og CORS.'); });
   }
   fetch('config.json').then(function (response) {
     if (!response.ok) {
