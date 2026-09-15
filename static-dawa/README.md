@@ -3,7 +3,7 @@
 Kopiér først `config.example.json` til `config.json` og angiv et
 Dataforsyningen-token. Åbn ikke `index.html` direkte som `file://`, fordi
 browseren blokerer `config.json` og API-kald fra den oprindelse. Start f.eks.
-`py -m http.server 8000` i mappen og åbn derefter `http://localhost:8000/`.
+`python -m http.server 8000` i mappen og åbn derefter `http://localhost:8000/`.
 Eksempler:
 
 * `/#navngivneveje/31ac106c-aaa1-3184-e044-0003ba298018`

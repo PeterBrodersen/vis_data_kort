@@ -159,7 +159,7 @@
     }
     return response.json();
   }).then(function (loaded) { config = loaded; addBackground(); load(); }).catch(function (error) {
-    if (location.protocol === 'file:') status('Åbn appen via en lokal webserver, ikke direkte som file://. Kør f.eks. py -m http.server 8000 i denne mappe.');
+    if (location.protocol === 'file:') status('Åbn appen via en lokal webserver, ikke direkte som file://. Kør f.eks. python -m http.server 8000 i denne mappe.');
     else if (error instanceof SyntaxError) status('Fejl: config.json er ikke en JSON-fil (' + errorMessage(error) + ')');
     else status('Fejl: ' + errorMessage(error));
   });

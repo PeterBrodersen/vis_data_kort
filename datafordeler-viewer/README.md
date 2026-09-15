@@ -4,7 +4,7 @@ Kopiér først `config.example.json` til `config.json`, angiv et token i både
 `Datafordeler`- og `Dataforsyningen`-objektet, og servér derefter mappen fra en
 webserver. HTML-filen kan ikke åbnes direkte som `file://`, fordi browseren
 ellers blokerer indlæsning af `config.json` og kald til API’erne. Start f.eks.
-en lokal server i mappen med `py -m http.server 8000` og åbn
+en lokal server i mappen med `python -m http.server 8000` og åbn
 `http://localhost:8000/`.
 
 * `/#adgangsadresser?id=0a3f507a-eedb-32b8-e044-0003ba298018` (Sankt Kjelds Plads 11, 2100 København Ø)
