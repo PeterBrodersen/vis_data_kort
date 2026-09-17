@@ -6,6 +6,16 @@ forespørgslerne.
 
 ## Tjenester
 
+### `datafordeler-viewer`
+
+En statisk HTML- og JavaScript-udgave, der slår data op i Datafordeleren i
+stedet for DAWA. Angiv token i `config.json`, og servér derefter mappen fra en
+webserver.
+
+Denne udgave er en startadapter og er ikke en fuld 1:1-erstatning for alle
+DAWA-services. Tokenet i `config.json` er synligt for klienterne og bør derfor
+begrænses til en passende klient- eller brugeradgang.
+
 ### `static-dawa`
 
 En statisk HTML- og JavaScript-udgave af den oprindelige visning. Den bruger
@@ -18,15 +28,17 @@ URL-parametre angives efter `#`, eksempelvis:
 
 Mappen skal blot serveres fra en webserver.
 
-### `datafordeler-viewer`
+## Apache-redirect
 
-En statisk HTML- og JavaScript-udgave, der slår data op i Datafordeleren i
-stedet for DAWA. Angiv token i `config.json`, og servér derefter mappen fra en
-webserver.
+Da URL-parametrene angives efter `#`, kan det give mening at konfigurere en
+Rewrite-regel for Apache, så legacy-requests uden `#` bliver redirectet korrekt:
 
-Denne udgave er en startadapter og er ikke en fuld 1:1-erstatning for alle
-DAWA-services. Tokenet i `config.json` er synligt for klienterne og bør derfor
-begrænses til en passende klient- eller brugeradgang.
+```apache
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^/(.*)$ /#$1 [R=302,L,NE]
+```
 
 ## Oprindelig tjeneste
 
