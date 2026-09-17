@@ -28,17 +28,10 @@ URL-parametre angives efter `#`, eksempelvis:
 
 Mappen skal blot serveres fra en webserver.
 
-## Apache-redirect
+## Redirect
 
-Da URL-parametrene angives efter `#`, kan det give mening at konfigurere en
-Rewrite-regel for Apache, så legacy-requests uden `#` bliver redirectet korrekt:
+Da URL-parametrene nu angives efter `#`, kan det give mening at konfigurere webserveren til at viderestille requests til ressourcer, der ikke findes (fx `/vejstykker?kommunekode=0101`) til samme sti, blot med `#` foran (fx til `#/vejstykker?kommunekode=0101`). Dette vil gøre det lettere at videreføre legacy-requests.
 
-```apache
-RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^/(.*)$ /#$1 [R=302,L,NE]
-```
 
 ## Oprindelig tjeneste
 
