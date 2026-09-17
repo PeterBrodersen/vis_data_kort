@@ -126,7 +126,12 @@
     var seen = {};
     nodes = nodes.filter(function (node) { var key = node.id_lokalId + ':' + node.status; if (seen[key]) return false; seen[key] = true; return true; });
     var geojson = { type: 'FeatureCollection', features: nodes.map(function (node) { return toFeature(node, resource); }).filter(function (feature) { return feature.geometry; }) };
-    var layer = L.geoJSON(geojson, { onEachFeature: function (feature, item) { item.bindPopup('<strong>' + escapeHtml(String(feature.properties.adgangsadressebetegnelse || feature.properties.adressebetegnelse || feature.properties.vejnavn || feature.properties.id_lokalId)) + '</strong>'); } }).addTo(map);
+    var layer = L.geoJSON(geojson, { onEachFeature: function (feature, item) {
+      var properties = feature.properties, label = properties.adgangsadressebetegnelse || properties.adressebetegnelse || properties.vejnavn || properties.id_lokalId;
+      var popup = '<strong>' + escapeHtml(String(label)) + '</strong>';
+      if (resource === 'navngivneveje' && properties.id_lokalId) popup += '<br>ID: <a href="/#navngivneveje/' + escapeHtml(encodeURIComponent(String(properties.id_lokalId))) + '">' + escapeHtml(String(properties.id_lokalId)) + '</a>';
+      item.bindPopup(popup);
+    } }).addTo(map);
     if (layer.getBounds().isValid()) map.fitBounds(layer.getBounds());
   }
   function load() {
